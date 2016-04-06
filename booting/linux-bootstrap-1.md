@@ -34,30 +34,32 @@ request.
 * Понимание кода на языке C
 * Понимание кода на языке ассемблера (синтаксис AT&T)
 
-Anyway, if you just start to learn some tools, I will try to explain some parts
-during this and the following posts. Ok, simple introduction finishes and now we
-can start to dive into the kernel and low-level stuff.
+В любом случае, если вы только начинаете изучать какие-то инструменты, я
+постараюсь объяснить некоторые моменты этой и последующих частей. Ладно,
+простое введение закончилось, и теперь можно начать "погружение" в ядро и
+всякие низкоуровневые штуки.
 
-All code is actually for kernel - 3.18. If there are changes, I will update the
-posts accordingly.
+Весь код, представленный здесь, в основном для ядра версии 3.18. Если есть
+какие-то изменения, позже я обновлю статьи соответствующим образом.
 
-The Magic Power Button, What happens next?
---------------------------------------------------------------------------------
+Магическая кнопка Старт и что происходит дальше?
+-------------------------------------------------------------------------------
 
-Despite that this is a series of posts about the Linux kernel, we will not start
-from the kernel code (at least not in this paragraph). Ok, you press the magic
-power button on your laptop or desktop computer and it starts to work. After the
-motherboard sends a signal to the [power
-supply](https://en.wikipedia.org/wiki/Power_supply), the power supply provides
-the computer with the proper amount of electricity. Once the motherboard
-receives the [power good
-signal](https://en.wikipedia.org/wiki/Power_good_signal), it tries to start the
-CPU. The CPU resets all leftover data in its registers and sets up predefined
-values for each of them.
+Несмотря на то, что это серия статей о ядре Linux, мы не будем начинать с его
+исходного кода (по крайней мере не в этом параграфе). Ок, вы нажали магическую
+кнопку старта на своем ноутбуке или настольном компьютере, и он начал работать.
+После того, как материнская плата отправит сигнал к
+[источнику питания](https://en.wikipedia.org/wiki/Power_supply), источник
+питания обеспечит компьютер достаточным количеством электричества. Как только
+материнская плата получит сигнал
+["питание в норме"](https://en.wikipedia.org/wiki/Power_good_signal), она
+пытается запустить ЦПУ. ЦПУ перезапускает остаточные данные в своих регистрах и
+записывает предустановленные значения каждого из них.
 
 
-[80386](https://en.wikipedia.org/wiki/Intel_80386) and later CPUs define the
-following predefined data in CPU registers after the computer resets:
+ЦПУ серии [Intel 80386](https://en.wikipedia.org/wiki/Intel_80386) и старше
+после перезапуска компьютера заполняют регистры следующими предустановленными
+значениями:
 
 ```
 IP          0xfff0
@@ -65,31 +67,31 @@ CS selector 0xf000
 CS base     0xffff0000
 ```
 
-The processor starts working in [real
-mode](https://en.wikipedia.org/wiki/Real_mode). Let's back up a little to try
-and understand memory segmentation in this mode. Real mode is supported on all
-x86-compatible processors, from the
-[8086](https://en.wikipedia.org/wiki/Intel_8086) all the way to the modern Intel
-64-bit CPUs. The 8086 processor has a 20-bit address bus, which means that it
-could work with a 0-0x100000 address space (1 megabyte). But it only has 16-bit
-registers, and with 16-bit registers the maximum address is 2^16 - 1 or 0xffff
-(64 kilobytes). [Memory
-segmentation](http://en.wikipedia.org/wiki/Memory_segmentation) is used to make
-use of all the address space available. All memory is divided into small,
-fixed-size segments of 65536 bytes, or 64 KB. Since we cannot address memory
-above 64 KB with 16 bit registers, an alternate method is devised. An address
-consists of two parts: a segment selector which has an associated base address
-and an offset from this base address. In real mode, the associated base address
-of a segment selector is `Segment Selector * 16`. Thus, to get a physical
-address in memory, we need to multiply the segment selector part by 16 and add
-the offset part:
+Процессор начинает работать в
+[режиме реальных адресов](https://en.wikipedia.org/wiki/Real_mode). Давайте
+задержимся здесь ненадолго и попытаемся понять сегментацию памяти в этом
+режиме. Режим реальных адресов поддерживается всеми x86-совместимыми
+процессорами, от [8086](https://en.wikipedia.org/wiki/Intel_8086) до самых
+новых 64-битных ЦПУ Intel. Процессор 8086 имел 20-битную шину адреса, т.е. он
+мог работать с адресным пространством в диапазоне 0-0x100000 (1 мегабайт). Но
+регистры у него были только 16-битные, а в таком случае максимальный размер
+адресуемой памяти составляет 2^16 - 1 или 0xffff (64 килобайта).
+[Сегментация памяти](http://en.wikipedia.org/wiki/Memory_segmentation)
+используется, чтобы задействовать все доступное адресное пространство. Вся
+память делится на небольшие, фиксированного размера сегменты по 65536 байт или
+64 Кб. Поскольку мы не можем адресовать память свыше 64 Кб с помощью 16-битных
+регистров, был придуман альтернативный метод. Адрес состоит из двух частей:
+селектора сегмента, который содержит базовый адрес, и смещение от этого
+базового адреса. В режиме реальных адресов базовый адрес селектора сегмента это
+`Селектор Сегмента * 16`. Таким образом, чтобы получить физический адрес в
+памяти, нужно умножить селектор сегмента на 16 и прибавить смещение:
 
 ```
 PhysicalAddress = Segment Selector * 16 + Offset
 ```
 
-For example if `CS:IP` is `0x2000:0x0010`, the corresponding physical address
-will be:
+Например, если `CS:IP` содержит `0x2000:0x0010`, то соответствующий физический
+адрес будет:
 
 ```python
 >>> hex((0x2000 << 4) + 0x0010)
@@ -104,9 +106,9 @@ be:
 '0x10ffef'
 ```
 
-which is 65520 bytes over first megabyte. Since only one megabyte is accessible
-in real mode, `0x10ffef` becomes `0x00ffef` with disabled
-[A20](https://en.wikipedia.org/wiki/A20_line).
+что больше первого мегабайта на 65520 байт. Т.к. в режиме реальных адресов
+доступен только один мегабайт, `0x10ffef` становится `0x00ffef` с отключенной
+[адресной линией A20](https://en.wikipedia.org/wiki/A20_line).
 
 Ok, now we know about real mode and memory addressing. Let's get back to discuss
 about register values after reset:
