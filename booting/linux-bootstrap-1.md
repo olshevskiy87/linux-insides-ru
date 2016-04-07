@@ -98,8 +98,8 @@ PhysicalAddress = Segment Selector * 16 + Offset
 '0x20010'
 ```
 
-But if we take the largest segment selector and offset: `0xffff:0xffff`, it will
-be:
+Но если мы возьмем максимально доступный селектор сегментов и смещение:
+`0xffff:0xffff`, то получим следующее значение:
 
 ```python
 >>> hex((0xffff << 4) + 0xffff)
@@ -107,32 +107,35 @@ be:
 ```
 
 что больше первого мегабайта на 65520 байт. Т.к. в режиме реальных адресов
-доступен только один мегабайт, `0x10ffef` становится `0x00ffef` с отключенной
-[адресной линией A20](https://en.wikipedia.org/wiki/A20_line).
+доступен только один мегабайт, с отключенной
+[адресной линией A20](https://en.wikipedia.org/wiki/A20_line) `0x10ffef`
+становится `0x00ffef`.
 
-Ok, now we know about real mode and memory addressing. Let's get back to discuss
-about register values after reset:
+Хорошо, теперь мы знаем о режиме реальных адресов и адресации памяти. Давайте
+вернемся к обсуждению значений регистров после перезапуска:
 
-The `CS` register consists of two parts: the visible segment selector and the
-hidden base address. While the base address is normally formed by multiplying
-the segment selector value by 16, during a hardware reset, the segment selector
-in the CS register is loaded with 0xf000 and the base address is loaded with
-0xffff0000. The processor use this special base address until CS is changed.
+Регистр `CS` состоит из двух частей: видимый селектор сегмента и скрытый
+базовый адрес. В то время, как базовый адрес рассчитывается умножением значения
+селектора сегмента на 16 (во время аппаратного перезапуска), в селектор
+сегмента в регистре `CS` записывается 0xf000, а в базовый адрес - 0xffff0000.
+Процессор использует этот специальный базовый адрес, пока регистр `CS` не
+изменится.
 
-The starting address is formed by adding the base address to the value in the
-EIP register:
+Начальный адрес получается в результате сложения базового адреса и значения
+регистра `EIP`:
 
 ```python
 >>> 0xffff0000 + 0xfff0
 '0xfffffff0'
 ```
 
-We get `0xfffffff0` which is 4GB - 16 bytes. This point is called the [Reset
-vector](http://en.wikipedia.org/wiki/Reset_vector). This is the memory location
-at which the CPU expects to find the first instruction to execute after reset.
-It contains a [jump](http://en.wikipedia.org/wiki/JMP_%28x86_instruction%29)
-instruction which usually points to the BIOS entry point. For example, if we
-look in the [coreboot](http://www.coreboot.org/) source code, we see:
+Мы получили `0xfffffff0`, т.е. 4Гб - 16 байт. По этому адресу располагается
+т.н. [Вектор прерываний](http://en.wikipedia.org/wiki/Reset_vector). Это
+область памяти, в которой ЦПУ ожидает найти первую инструкцию для выполнения
+после перезапуска. Она содержит инструкцию
+[jump](http://en.wikipedia.org/wiki/JMP_%28x86_instruction%29), которая обычно
+указывает на точку входа в `BIOS`. Например, если мы взглянем на исходный код
+[coreboot](http://www.coreboot.org/), то увидим следующее:
 
 ```assembly
     .section ".reset"
