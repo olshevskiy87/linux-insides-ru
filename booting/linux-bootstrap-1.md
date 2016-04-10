@@ -385,30 +385,30 @@ X+08000  +--------------------------+
 Запуск настройки ядра
 ---------------------
 
-Finally we are in the kernel. Technically the kernel hasn't run yet, we need to
-set up the kernel, memory manager, process manager etc first. Kernel setup
-execution starts from
-[arch/x86/boot/header.S](https://github.com/torvalds/linux/blob/master/arch/x86/boot/header.S)
-at
+Наконец-то, мы в ядре. Технически ядро еще не запущено, для начала нам нужно
+настроить его, менеджер памяти, менеджер процессов и т.д. Настройка ядра
+начинается в
+[arch/x86/boot/header.S](https://github.com/torvalds/linux/blob/master/arch/x86/boot/header.S),
+начиная со
 [\_start](https://github.com/torvalds/linux/blob/master/arch/x86/boot/header.S#L293).
-It is a little strange at first sight, as there are several instructions before
-it.
+На первый взгляд это кажется немного странным, т.к. перед этим еще несколько
+инструкций.
 
-A Long time ago the Linux kernel had its own bootloader, but now if you run for
-example:
+Давным-давно у Linux был свой загрузчик, но сейчас, если вы запустите,
+например:
 
 ```
 qemu-system-x86_64 vmlinuz-3.18-generic
 ```
 
-You will see:
+то увидите:
 
-![Try vmlinuz in qemu](http://oi60.tinypic.com/r02xkz.jpg)
+![Попытка использовать vmlinuz в qemu](http://oi60.tinypic.com/r02xkz.jpg)
 
-Actually `header.S` starts from
-[MZ](https://en.wikipedia.org/wiki/DOS_MZ_executable) (see image above), error
-message printing and following
-[PE](https://en.wikipedia.org/wiki/Portable_Executable) header:
+Вообще-то `header.S` начинается с
+[MZ](https://en.wikipedia.org/wiki/DOS_MZ_executable) (см. картинку выше),
+вывода сообщения об ошибке и
+[PE](https://en.wikipedia.org/wiki/Portable_Executable) заголовка:
 
 ```assembly
 #ifdef CONFIG_EFI_STUB
@@ -424,11 +424,12 @@ pe_header:
     .word 0
 ```
 
-It needs this to load an operating system with
-[UEFI](https://en.wikipedia.org/wiki/Unified_Extensible_Firmware_Interface). We
-won't see how this works right now, we'll see this in one of the next chapters.
+Это нужно, чтобы загрузить операционную систему с интерфейсом
+[UEFI](https://en.wikipedia.org/wiki/Unified_Extensible_Firmware_Interface).
+Прямо сейчас мы не увидим, как это работает; это будет в одной из следующих
+глав.
 
-So the actual kernel setup entry point is:
+Итак, настоящая настройка ядра начинается с:
 
 ```assembly
 // header.S line 292
@@ -436,20 +437,20 @@ So the actual kernel setup entry point is:
 _start:
 ```
 
-The bootloader (grub2 and others) knows about this point (`0x200` offset from
-`MZ`) and makes a jump directly to this point, despite the fact that `header.S`
-starts from `.bstext` section which prints an error message:
+Загрузчик (grub2 или другой) знает об этой метке (смещение `0x200` от `MZ`)
+и сразу переходит на нее, несмотря на то, что `header.S` начинается с секции
+`.bstext`, которая выводит сообщение об ошибке:
 
 ```
 //
 // arch/x86/boot/setup.ld
 //
-. = 0;                    // current position
-.bstext : { *(.bstext) }  // put .bstext section to position 0
+. = 0;                    // текущее положение
+.bstext : { *(.bstext) }  // поместить секцию .bstext в позицию 0
 .bsdata : { *(.bsdata) }
 ```
 
-So the kernel setup entry point is:
+Так точка входа настройки ядра:
 
 ```assembly
     .globl _start
@@ -458,50 +459,51 @@ _start:
     .byte  start_of_setup-1f
 1:
     //
-    // rest of the header
+    // остаток заголовка
     //
 ```
 
-Here we can see a `jmp` instruction opcode - `0xeb` to the `start_of_setup-1f`
-point. `Nf` notation means `2f` refers to the next local `2:` label. In our case
-it is label `1` which goes right after jump. It contains the rest of the setup
-[header](https://github.com/torvalds/linux/blob/master/Documentation/x86/boot.txt#L156).
-Right after the setup header we see the `.entrytext` section which starts at the
-`start_of_setup` label.
+Здесь мы видим опкод инструкции `jmp` - `0xeb` к метке `start_of_setup-1f`.
+Нотация `Nf` означает, что `2f` ссылается на следующую локальную метку `2:`.
+В нашем случае это метка `1`, которая расположена сразу после инструкции
+`jump`. Она содержит оставшуюся часть
+[заголовка](https://github.com/torvalds/linux/blob/master/Documentation/x86/boot.txt#L156).
+Сразу после заголовка настроек мы видим секцию `.entrytext`, которая начинается
+с метки `start_of_setup`.
 
-Actually this is the first code that runs (aside from the previous jump
-instruction of course). After the kernel setup got the control from the
-bootloader, the first `jmp` instruction is located at `0x200` (first 512 bytes)
-offset from the start of the kernel real mode. This we can read in the Linux
-kernel boot protocol and also see in the grub2 source code:
+В общем-то, это первый код, который запускается (отдельно от предыдущей
+инструкции `jump`, конечно). После того, как настройщик ядра получил
+управление от загрузчика, первая инструкция `jmp` располагалась в смещении
+`0x200` (первые 512 байт) от начала реальных адресов. Об этом можно узнать из
+протокола загрузки ядра Linux, а также увидеть в исходном коде grub2:
 
 ```C
 state.gs = state.fs = state.es = state.ds = state.ss = segment;
 state.cs = segment + 0x20;
 ```
 
-It means that segment registers will have the following values after kernel
-setup starts:
+Это означает, что после начала настройки ядра регистры сегмента будут иметь
+следующие значения:
 
 ```
 gs = fs = es = ds = ss = 0x1000
 cs = 0x1020
 ```
 
-in my case when the kernel is loaded at `0x10000`.
+Это справедливо для моего случая, когда ядро загружено по адресу `0x10000`.
 
-After the jump to `start_of_setup`, it needs to do the following:
+После перехода на метку `start_of_setup`, необходимо соблюсти условия:
 
-* Be sure that all values of all segment registers are equal
-* Set up correct stack if needed
-* Set up [bss](https://en.wikipedia.org/wiki/.bss)
-* Jump to C code at
+* Быть уверенным, что все значения всех сегментных регистров равны
+* Правильно настроить стек, если нужно
+* Настроить [bss](https://en.wikipedia.org/wiki/.bss)
+* Перейти к C-коду
   [main.c](https://github.com/torvalds/linux/blob/master/arch/x86/boot/main.c)
 
-Let's look at the implementation.
+Давайте посмотрим, как эти условия выполняются.
 
-Segment registers align
---------------------------------------------------------------------------------
+Выравнивание сегментных регистров
+---------------------------------
 
 First of all it ensures that `ds` and `es` segment registers point to the same
 address and clears the direction flag with the `cld` instruction:
@@ -521,8 +523,8 @@ _start:
     .byte start_of_setup-1f
 ```
 
-`jump`, which is at 512 bytes offset from the [4d
-5a](https://github.com/torvalds/linux/blob/master/arch/x86/boot/header.S#L47).
+`jump`, which is at 512 bytes offset from the
+[4d 5a](https://github.com/torvalds/linux/blob/master/arch/x86/boot/header.S#L47).
 It also needs to align `cs` from `0x10200` to `0x10000` as all other segment
 registers. After that we set up the stack:
 
@@ -535,12 +537,12 @@ registers. After that we set up the stack:
 push `ds` value to the stack with the address of the
 [6](https://github.com/torvalds/linux/blob/master/arch/x86/boot/header.S#L494)
 label and execute `lretw` instruction. When we call `lretw`, it loads address of
-label `6` into the [instruction
-pointer](https://en.wikipedia.org/wiki/Program_counter) register and `cs` with
+label `6` into the
+[instruction pointer](https://en.wikipedia.org/wiki/Program_counter) register and `cs` with
 the value of `ds`. After this `ds` and `cs` will have the same values.
 
 Stack Setup
---------------------------------------------------------------------------------
+-----------
 
 Actually, almost all of the setup code is preparation for the C language
 environment in real mode. The next
@@ -623,7 +625,7 @@ if `dx` is not carry (it will not be carry, dx = _end + 512), jump to label `2`
 ![minimal stack](http://oi60.tinypic.com/28w051y.jpg)
 
 BSS Setup
---------------------------------------------------------------------------------
+---------
 
 The last two steps that need to happen before we can jump to the main C code,
 are setting up the [BSS](https://en.wikipedia.org/wiki/.bss) area and checking
@@ -670,7 +672,7 @@ in memory from `_\_bss\_start` to `_end`:
 ![bss](http://oi59.tinypic.com/29m2eyr.jpg)
 
 Jump to main
---------------------------------------------------------------------------------
+------------
 
 That's all, we have the stack and BSS so we can jump to the `main()` C function:
 
@@ -683,7 +685,7 @@ The `main()` function is located in
 You can read about what this does in the next part.
 
 Conclusion
---------------------------------------------------------------------------------
+----------
 
 This is the end of the first part about Linux kernel insides. If you have
 questions or suggestions, ping me in twitter [0xAX](https://twitter.com/0xAX),
@@ -698,7 +700,7 @@ any inconvenience. If you find any mistakes please send me PR to
 [linux-insides](https://github.com/0xAX/linux-internals).**
 
 Links
---------------------------------------------------------------------------------
+-----
 
   * [Intel 80386 programmer's reference manual 1986](http://css.csail.mit.edu/6.858/2014/readings/i386.pdf)
   * [Minimal Boot Loader for Intel® Architecture](https://www.cs.cmu.edu/~410/doc/minimal_boot.pdf)
