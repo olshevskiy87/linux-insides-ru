@@ -282,40 +282,41 @@ PhysicalAddress = Segment Selector * 16 + Offset
 Загрузчик
 ---------
 
-There are a number of bootloaders that can boot Linux, such as
-[GRUB 2](https://www.gnu.org/software/grub/) and
-[syslinux](http://www.syslinux.org/wiki/index.php/The_Syslinux_Project). The
-Linux kernel has a [Boot
-protocol](https://github.com/torvalds/linux/blob/master/Documentation/x86/boot.txt)
-which specifies the requirements for bootloaders to implement Linux support.
-This example will describe GRUB 2.
+В Linux есть несколько загрузчиков, такие как
+[GRUB 2](https://www.gnu.org/software/grub/) и
+[syslinux](http://www.syslinux.org/wiki/index.php/The_Syslinux_Project).
+У ядра Linux есть
+[протокол загрузки](https://github.com/torvalds/linux/blob/master/Documentation/x86/boot.txt),
+который определяет все необходимые настройки для правильной работы ОС.
+В качестве примера опишем GRUB 2.
 
-Now that the BIOS has chosen a boot device and transferred control to the boot
-sector code, execution starts from
+Теперь, когда `BIOS` выбрал загрузочный диск и передал контроль управления
+коду в загрузочном секторе, начинается выполнение
 [boot.img](http://git.savannah.gnu.org/gitweb/?p=grub.git;a=blob;f=grub-core/boot/i386/pc/boot.S;hb=HEAD).
-This code is very simple due to the limited amount of space available, and
-contains a pointer which is used to jump to the location of GRUB 2's core image.
-The core image begins with
+Этот код очень простой из-за ограничения доступного пространства. Он содержит
+указатель, используемый для перехода к основному образу GRUB 2. Основной образ
+начинается с
 [diskboot.img](http://git.savannah.gnu.org/gitweb/?p=grub.git;a=blob;f=grub-core/boot/i386/pc/diskboot.S;hb=HEAD),
-which is usually stored immediately after the first sector in the unused space
-before the first partition. The above code loads the rest of the core image into
-memory, which contains GRUB 2's kernel and drivers for handling filesystems.
-After loading the rest of the core image, it executes
+который обычно располагается сразу после первого сектора в неиспользуемой
+области перед первым разделом. Код загружает в память оставшуюся часть
+основного раздела, который содержит ядро и драйверы GRUB 2 для управления
+файловой системой. После этого код выполняет
 [grub\_main](http://git.savannah.gnu.org/gitweb/?p=grub.git;a=blob;f=grub-core/kern/main.c).
 
-`grub_main` initializes the console, gets the base address for modules, sets the
-root device, loads/parses the grub configuration file, loads modules etc. At the
-end of execution, `grub_main` moves grub to normal mode. `grub_normal_execute`
-(from `grub-core/normal/main.c`) completes the last preparation and shows a menu
-to select an operating system. When we select one of the grub menu entries,
-`grub_menu_execute_entry` runs, which executes the grub `boot` command, booting
-the selected operating system.
+`grub_main` инициализирует консоль, получает базовый адрес для модулей,
+устанавливает корневое устройство, загружает/обрабатывает файл настроек `grub`,
+загружает модули и т.д. Закончив работу, `grub_main` переводит `grub` обратно в
+нормальный режим. `grub_normal_execute` (из `grub-core/normal/main.c`)
+завершает подготовку и отображает меню выбора операционной системы. Когда мы
+выбираем один из пунктов меню, запускается `grub_menu_execute_entry`, который
+в свою очередь запускает команду `grub` `boot`, загружающую выбранную
+операционную систему.
 
-As we can read in the kernel boot protocol, the bootloader must read and fill
-some fields of the kernel setup header, which starts at `0x01f1` offset from the
-kernel setup code. The kernel header
+Из протокола загрузки видно, что загрузчик должен читать и заполнять некоторые
+поля в заголовке ядра, который начинается со смещения `0x01f1` в коде настроек.
+Заголовок ядра
 [arch/x86/boot/header.S](https://github.com/torvalds/linux/blob/master/arch/x86/boot/header.S)
-starts from:
+начинается с:
 
 ```assembly
     .globl hdr
@@ -329,66 +330,67 @@ hdr:
     boot_flag:   .word 0xAA55
 ```
 
-The bootloader must fill this and the rest of the headers (only marked as
-`write` in the Linux boot protocol, for example
-[this](https://github.com/torvalds/linux/blob/master/Documentation/x86/boot.txt#L354))
-with values which it either got from command line or calculated. We will not see
-a description and explanation of all fields of the kernel setup header, we will
-get back to that when the kernel uses them. You can find a description of all
-fields in the [boot
-protocol](https://github.com/torvalds/linux/blob/master/Documentation/x86/boot.txt#L156).
+Загрузчик должен заполнить этот и другие заголовки (помеченные как `write`
+в протоколе загрузки ядра, например,
+[этот](https://github.com/torvalds/linux/blob/master/Documentation/x86/boot.txt#L354)
+) значениями, которые он также получает от команды или вычисленными значениями.
+Мы не увидим описание и объяснение всех полей заголовка ядра, но, когда он
+будет их использовать, вернемся к этому. Тем не менее вы можете найти полное
+описание всех полей в
+[протоколе загрузки](https://github.com/torvalds/linux/blob/master/Documentation/x86/boot.txt#L156).
 
-As we can see in the kernel boot protocol, the memory map will be the following
-after loading the kernel:
+Как мы видим из протокола, после загрузки ядра схема распределения памяти
+будет выглядеть следующим образом:
 
 ```shell
-         | Protected-mode kernel  |
-100000   +------------------------+
-         | I/O memory hole        |
-0A0000   +------------------------+
-         | Reserved for BIOS      | Leave as much as possible unused
-         ~                        ~
-         | Command line           | (Can also be below the X+10000 mark)
-X+10000  +------------------------+
-         | Stack/heap             | For use by the kernel real-mode code.
-X+08000  +------------------------+
-         | Kernel setup           | The kernel real-mode code.
-         | Kernel boot sector     | The kernel legacy boot sector.
-       X +------------------------+
-         | Boot loader            | <- Boot sector entry point 0x7C00
-001000   +------------------------+
-         | Reserved for MBR/BIOS  |
-000800   +------------------------+
-         | Typically used by MBR  |
-000600   +------------------------+
-         | BIOS use only          |
-000000   +------------------------+
+         | Ядро защищенного режима  |
+100000   +--------------------------+
+         | Память I/O               |
+0A0000   +--------------------------+
+         | Резерв для BIOS          | Оставлен максимально допустимый размер
+         ~                          ~
+         | Список команд            | (Может быть ниже X+10000)
+X+10000  +--------------------------+
+         | Стек/куча                | Используется кодом ядра в режиме реальных адресов
+X+08000  +--------------------------+
+         | Настройки ядра           | Код ядра режима реальных адресов.
+         | Загрузочный сектор ядра  | Унаследованный загрузочный сектор ядра.
+       X +--------------------------+
+         | Загрузчик                | <- Точка входа загрузочного сектора 0x7C00
+001000   +--------------------------+
+         | Резерв под MBR/BIOS      |
+000800   +--------------------------+
+         | Обычно используется MBR  |
+000600   +--------------------------+
+         | Используется только BIOS |
+000000   +--------------------------+
 
 ```
 
-So when the bootloader transfers control to the kernel, it starts at:
+Итак, когда загрузчик передает управление ядру, он запускается с:
 
 ```
 0x1000 + X + sizeof(KernelBootSector) + 1
 ```
 
-where `X` is the address of the kernel boot sector loaded. In my case `X` is
-`0x10000`, as we can see in a memory dump:
+где `X` это адрес загруженного сектора загрузки ядра. В моем случае `X` это
+`0x10000`, как мы можем увидеть в дампе памяти:
 
-![kernel first address](http://oi57.tinypic.com/16bkco2.jpg)
+![первый адрес ядра](http://oi57.tinypic.com/16bkco2.jpg)
 
-The bootloader has now loaded the Linux kernel into memory, filled the header
-fields and jumped to it. Now we can move directly to the kernel setup code.
+Сейчас загрузчик поместил ядро Linux в память, заполнил поля заголовка и
+переключился на него. Теперь мы можем перейти непосредственно к коду настройки
+ядра.
 
-Start of Kernel Setup
---------------------------------------------------------------------------------
+Запуск настройки ядра
+---------------------
 
 Finally we are in the kernel. Technically the kernel hasn't run yet, we need to
 set up the kernel, memory manager, process manager etc first. Kernel setup
 execution starts from
 [arch/x86/boot/header.S](https://github.com/torvalds/linux/blob/master/arch/x86/boot/header.S)
 at
-[_start](https://github.com/torvalds/linux/blob/master/arch/x86/boot/header.S#L293).
+[\_start](https://github.com/torvalds/linux/blob/master/arch/x86/boot/header.S#L293).
 It is a little strange at first sight, as there are several instructions before
 it.
 
