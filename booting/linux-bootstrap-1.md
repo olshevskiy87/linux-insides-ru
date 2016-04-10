@@ -505,8 +505,9 @@ cs = 0x1020
 Выравнивание сегментных регистров
 ---------------------------------
 
-First of all it ensures that `ds` and `es` segment registers point to the same
-address and clears the direction flag with the `cld` instruction:
+В первую очередь необходимо убедиться, что сегментные регистры `ds` and `es`
+указывают на один и тот же адрес, а также что флаг направления очищен
+инструкцией `cld`:
 
 ```assembly
     movw    %ds, %ax
@@ -514,8 +515,8 @@ address and clears the direction flag with the `cld` instruction:
     cld
 ```
 
-As I wrote earlier, grub2 loads kernel setup code at address `0x10000` and `cs`
-at `0x1020` because execution doesn't start from the start of file, but from:
+Как я уже писал ранее, grub2 загружает код настройки ядра по адресу `0x10000`
+, а `cs` - `0x1020`, потому что запуск происходит не с начала файла, а с:
 
 ```assembly
 _start:
@@ -523,10 +524,10 @@ _start:
     .byte start_of_setup-1f
 ```
 
-`jump`, which is at 512 bytes offset from the
+инструкции  `jump`, расположение которой смещено на 512 байт от
 [4d 5a](https://github.com/torvalds/linux/blob/master/arch/x86/boot/header.S#L47).
-It also needs to align `cs` from `0x10200` to `0x10000` as all other segment
-registers. After that we set up the stack:
+Также необходимо обновить `cs`: с `0x10200` на `0x10000`, как и остальные
+сегментные регистры. После этого мы настраиваем стек:
 
 ```assembly
     pushw   %ds
@@ -534,12 +535,13 @@ registers. After that we set up the stack:
     lretw
 ```
 
-push `ds` value to the stack with the address of the
+кладем значение `ds` на стек по адресу метки
 [6](https://github.com/torvalds/linux/blob/master/arch/x86/boot/header.S#L494)
-label and execute `lretw` instruction. When we call `lretw`, it loads address of
-label `6` into the
-[instruction pointer](https://en.wikipedia.org/wiki/Program_counter) register and `cs` with
-the value of `ds`. After this `ds` and `cs` will have the same values.
+и выполняем инструкцию `lretw`. Когда мы вызываем `lretw`, она загружает адрес
+метки `6` в регистр
+[указателя инструкций](https://en.wikipedia.org/wiki/Program_counter),
+а в `cs` - значение `ds`. После этого `ds` и `cs` будут иметь одно и то же
+значение.
 
 Stack Setup
 -----------
