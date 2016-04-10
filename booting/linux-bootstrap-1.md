@@ -129,7 +129,7 @@ PhysicalAddress = Segment Selector * 16 + Offset
 '0xfffffff0'
 ```
 
-Мы получили `0xfffffff0`, т.е. 4Гб - 16 байт. По этому адресу располагается
+Мы получили `0xfffffff0`, т.е. 4 Гб - 16 байт. По этому адресу располагается
 т.н. [Вектор прерываний](http://en.wikipedia.org/wiki/Reset_vector). Это
 область памяти, в которой ЦПУ ожидает найти первую инструкцию для выполнения
 после перезапуска. Она содержит инструкцию
@@ -148,7 +148,7 @@ reset_vector:
 ```
 
 Здесь мы можем видеть
-[опкод инструкции jmp](http://ref.x86asm.net/coder32.html#xE9) - 0xe9 и его
+[опкод инструкции jmp](http://ref.x86asm.net/coder32.html#xE9) - `0xe9` и его
 адрес назначения - `_start - ( . + 2 )`, а также мы видим, что секция `reset`
 занимает 16 байт и начинается с `0xfffffff0`:
 
@@ -226,63 +226,64 @@ nasm -f bin boot.nasm
 objdump -D -b binary -mi386 -Maddr16,data16,intel boot
 ```
 
-A real-world boot sector has code to continue the boot process and the partition
-table instead of a bunch of 0's and an exclamation mark :) From this point
-onwards, BIOS hands over control to the bootloader.
+На самом деле у загрузочного сектора есть код продолжения процесса загрузки,
+таблица разметки вместо набора нулей и восклицательный знак :) Начиная с этого
+момента, `BIOS` держит в своих руках процесс загрузки.
 
-**NOTE**: As you can read above the CPU is in real mode. In real mode,
-calculating the physical address in memory is done as follows:
+**ЗАМЕЧАНИЕ**: Как вы уже прочитали выше - ЦПУ находится в режиме реальных
+адресов. В этом режиме вычисление физического адреса в памяти происходит так:
 
 ```
 PhysicalAddress = Segment Selector * 16 + Offset
 ```
 
-The same as mentioned before. We have only 16 bit general purpose registers, the
-maximum value of a 16 bit register is `0xffff`, so if we take the largest
-values, the result will be:
+Также, как было упомянуто ранее. У нас есть только 16 битные регистры общего
+назначения, максимальное значение которых `0xffff`, поэтому, если брать по
+максимуму, результат будет:
 
 ```python
 >>> hex((0xffff * 16) + 0xffff)
 '0x10ffef'
 ```
 
-Where `0x10ffef` is equal to `1MB + 64KB - 16b`. But a
-[8086](https://en.wikipedia.org/wiki/Intel_8086) processor, which is the first
-processor with real mode, has a 20 bit address line and `2^20 = 1048576` is 1MB.
-This means the actual  memory available is 1MB.
+Где `0x10ffef` равен `1 Мб + 64 Кб - 16 байт`. Но у процессора
+[8086](https://en.wikipedia.org/wiki/Intel_8086), первого процессора с режимом
+реальных адресов, 20-битная шина адресации, а `2^20 = 1048576` это 1 Мб.
+Это означает, что фактическое значение доступной памяти 1 Мб.
 
-General real mode's memory map is:
-
-```
-0x00000000 - 0x000003FF - Real Mode Interrupt Vector Table
-0x00000400 - 0x000004FF - BIOS Data Area
-0x00000500 - 0x00007BFF - Unused
-0x00007C00 - 0x00007DFF - Our Bootloader
-0x00007E00 - 0x0009FFFF - Unused
-0x000A0000 - 0x000BFFFF - Video RAM (VRAM) Memory
-0x000B0000 - 0x000B7777 - Monochrome Video Memory
-0x000B8000 - 0x000BFFFF - Color Video Memory
-0x000C0000 - 0x000C7FFF - Video ROM BIOS
-0x000C8000 - 0x000EFFFF - BIOS Shadow Area
-0x000F0000 - 0x000FFFFF - System BIOS
-```
-
-In the beginning of this post I wrote that the first instruction executed by the
-CPU is located at address `0xFFFFFFF0`, which is much larger than `0xFFFFF`
-(1MB). How can the CPU access this in real mode? This is in the
-[coreboot](http://www.coreboot.org/Developer_Manual/Memory_map) documentation:
+Основные разделы памяти в режиме реальных адресов:
 
 ```
-0xFFFE_0000 - 0xFFFF_FFFF: 128 kilobyte ROM mapped into address space
+0x00000000 - 0x000003FF - Таблица векторов прерываний
+0x00000400 - 0x000004FF - Данные BIOS
+0x00000500 - 0x00007BFF - Не используется
+0x00007C00 - 0x00007DFF - Наш загрузчик
+0x00007E00 - 0x0009FFFF - Не используется
+0x000A0000 - 0x000BFFFF - RAM (VRAM) видео памяти
+0x000B0000 - 0x000B7777 - Память монохромного видео
+0x000B8000 - 0x000BFFFF - Память цветного видео
+0x000C0000 - 0x000C7FFF - BIOS ROM видео-памяти
+0x000C8000 - 0x000EFFFF - Скрытая память BIOS
+0x000F0000 - 0x000FFFFF - Системная BIOS
 ```
 
-At the start of execution, the BIOS is not in RAM, but in ROM.
+В самом начале статьи я написал, что первая инструкция, выполняемая ЦПУ
+расположена по адресу `0xFFFFFFF0`, значение которого намного больше, чем
+`0xFFFFF` (1 Мб). Каким образом ЦПУ получает доступ к этому участку в режиме
+реальных адресов? Это описано в документации
+[coreboot](http://www.coreboot.org/Developer_Manual/Memory_map):
 
-Bootloader
---------------------------------------------------------------------------------
+```
+0xFFFE_0000 - 0xFFFF_FFFF: 128 Кб ROM указывают на адресное пространство
+```
 
-There are a number of bootloaders that can boot Linux, such as [GRUB
-2](https://www.gnu.org/software/grub/) and
+В самом начале выполнения `BIOS` находится не в RAM, а в ROM.
+
+Загрузчик
+---------
+
+There are a number of bootloaders that can boot Linux, such as
+[GRUB 2](https://www.gnu.org/software/grub/) and
 [syslinux](http://www.syslinux.org/wiki/index.php/The_Syslinux_Project). The
 Linux kernel has a [Boot
 protocol](https://github.com/torvalds/linux/blob/master/Documentation/x86/boot.txt)
