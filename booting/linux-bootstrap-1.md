@@ -543,13 +543,14 @@ _start:
 а в `cs` - значение `ds`. После этого `ds` и `cs` будут иметь одно и то же
 значение.
 
-Stack Setup
------------
+Настройка стека
+---------------
 
-Actually, almost all of the setup code is preparation for the C language
-environment in real mode. The next
-[step](https://github.com/torvalds/linux/blob/master/arch/x86/boot/header.S#L467)
-is checking the `ss` register value and making a correct stack if `ss` is wrong:
+Вообще-то, почти весь код настройки это подготовка для среды языка C в реальном
+режиме. Следующий
+[шаг](https://github.com/torvalds/linux/blob/master/arch/x86/boot/header.S#L467)
+состоит в проверке значения регистра `ss` и создании правильного стека, если
+значение `ss` неверно:
 
 ```assembly
     movw    %ss, %dx
@@ -558,15 +559,16 @@ is checking the `ss` register value and making a correct stack if `ss` is wrong:
     je      2f
 ```
 
-This can lead to 3 different scenarios:
+Это может привести к трем различны сценариям:
 
-* `ss` has valid value 0x10000 (as all other segment registers beside `cs`)
-* `ss` is invalid and `CAN_USE_HEAP` flag is set     (see below)
-* `ss` is invalid and `CAN_USE_HEAP` flag is not set (see below)
+* `ss` имеет верное значение 0x10000 (как и все остальные сегментные регистры
+  рядом с `cs`)
+* `ss` некорректный и установлен флаг `CAN_USE_HEAP` (см. ниже)
+* `ss` некорректный и флаг `CAN_USE_HEAP` не установлен (см. ниже)
 
-Let's look at all three of these scenarios:
+Рассмотрим все три сценария:
 
-* `ss` has a correct address (0x10000). In this case we go to label
+* `ss` имеет верный адрес (0x10000). В этом случае мы переходим к метке
   [2](https://github.com/torvalds/linux/blob/master/arch/x86/boot/header.S#L481):
 
 ```assembly
@@ -578,21 +580,24 @@ Let's look at all three of these scenarios:
     sti
 ```
 
-Here we can see the alignment of `dx` (contains `sp` given by bootloader) to 4
-bytes and a check for whether or not it is zero. If it is zero, we put `0xfffc`
-(4 byte aligned address before maximum segment size - 64 KB) in `dx`. If it is
-not zero we continue to use `sp` given by the bootloader (0xf7f4 in my case).
-After this we put the `ax` value to `ss` which stores the correct segment
-address of `0x10000` and sets up a correct `sp`. We now have a correct stack:
+Здесь мы видим выравнивание сегмента `dx` (содержащего значение `sp`,
+полученное загрузчиком) четырью байтами и проверку - является ли полученное
+значение нулем. Если ноль, то помещаем `0xfffx` (выровненный четырью байтами
+адрес до максимального значения сегмента за вычетом 64 Кб) в `dx`. Если не
+ноль, продолжаем использовать `sp`, полученный от загрузчика (в моем случае
+`0xf7f4`). После этого мы помещаем значение `ax` в `ss`, который хранит
+правильный адрес сегмента `0x10000` и устанавливает правильное значение `sp`.
+Теперь наш стек скорректирован:
 
-![stack](http://oi58.tinypic.com/16iwcis.jpg)
+![стек](http://oi58.tinypic.com/16iwcis.jpg)
 
-* In the second scenario, (`ss` != `ds`). First of all put the
+* рассмотрим второй сценарий (когда `ss` != `ds`). Во-первых, поместим значение
   [_end](https://github.com/torvalds/linux/blob/master/arch/x86/boot/setup.ld#L52)
-  (address of end of setup code) value in `dx` and check the `loadflags` header
-  field with the `testb` instruction to see whether we can use the heap or not.
+  (адрес окончания кода настройки) в `dx` и проверим поле заголовока
+  `loadflags` инструкцией `testb`, чтобы проверить, можем ли мы использовать
+  кучу (heap) или нет.
   [loadflags](https://github.com/torvalds/linux/blob/master/arch/x86/boot/header.S#L321)
-  is a bitmask header which is defined as:
+  это заголовок с битовой маской, который определяется так:
 
 ```C
 #define LOADED_HIGH     (1<<0)
@@ -601,7 +606,7 @@ address of `0x10000` and sets up a correct `sp`. We now have a correct stack:
 #define CAN_USE_HEAP    (1<<7)
 ```
 
-And as we can read in the boot protocol:
+И, как мы можем узнать из протокола загрузки:
 
 ```
 Field name: loadflags
@@ -614,17 +619,17 @@ Field name: loadflags
     functionality will be disabled.
 ```
 
-If the `CAN_USE_HEAP` bit is set, put `heap_end_ptr` in `dx` which points to
-`_end` and add `STACK_SIZE` (minimal stack size - 512 bytes) to it. After this
-if `dx` is not carry (it will not be carry, dx = _end + 512), jump to label `2`
-    as in the previous case and make a correct stack.
+Если бит `CAN_USE_HEAP` установлен, поместить `heap_end_ptr` в `dx`, который
+указывает на `_end` и добавить к нему `STACK_SIZE` (минимальный размер стека -
+512 байт). После этого, если `dx` без переноса (так и будет, dx = _end + 512),
+переходим на метку `2`, как в предыдущем случае и создаем правильный стек.
 
-![stack](http://oi62.tinypic.com/dr7b5w.jpg)
+![стек](http://oi62.tinypic.com/dr7b5w.jpg)
 
-* When `CAN_USE\_HEAP` is not set, we just use a minimal stack from `_end` to
-  `_end + STACK\_SIZE`:
+* Когда флаг `CAN_USE_HEAP` не выставлен, мы просто используем минимальный
+  стек от `_end` до `_end + STACK_SIZE`:
 
-![minimal stack](http://oi60.tinypic.com/28w051y.jpg)
+![минимальный стек](http://oi60.tinypic.com/28w051y.jpg)
 
 BSS Setup
 ---------
