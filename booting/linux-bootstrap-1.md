@@ -631,30 +631,31 @@ Field name: loadflags
 
 ![минимальный стек](http://oi60.tinypic.com/28w051y.jpg)
 
-BSS Setup
----------
+Настройка BSS
+-------------
 
-The last two steps that need to happen before we can jump to the main C code,
-are setting up the [BSS](https://en.wikipedia.org/wiki/.bss) area and checking
-the "magic" signature. First, signature checking:
+Последние два шага, которые нужно выполнить перед тем, как мы сможем перейти
+к основному C-коду, это настройка
+[BSS](https://en.wikipedia.org/wiki/.bss) и проверка "магических" сигнатур.
+Сначала проверка сигнатур:
 
 ```assembly
     cmpl    $0x5a5aaa55, setup_sig
     jne     setup_bad
 ```
 
-This simply compares the
-[setup_sig](https://github.com/torvalds/linux/blob/master/arch/x86/boot/setup.ld#L39)
-with the magic number `0x5a5aaa55`. If they are not equal, a fatal error is
-reported.
+Это просто сравнение
+[setup\_sig](https://github.com/torvalds/linux/blob/master/arch/x86/boot/setup.ld#L39)
+с магическим числом `0x5a5aaa55`. Если они не равны, возникает фатальная
+ошибка.
 
-If the magic number matches, knowing we have a set of correct segment registers
-and a stack, we only need to set up the BSS section before jumping into the C
-code.
+Если магические числа совпадают, зная, что у нас есть набор правильно
+настроенных сегментных регистров и стек, нам нужно всего лишь настроить BSS и
+перейти к C-коду.
 
-The BSS section is used to store statically allocated, uninitialized data. Linux
-carefully ensures this area of memory is first blanked, using the following
-code:
+Секция BSS используется для хранения статически выделяемых,
+неинициализированных данных. Linux в самом начале заботливо очищает эту область
+памяти, используя следующий код:
 
 ```assembly
     movw    $__bss_start, %di
@@ -665,58 +666,61 @@ code:
     rep; stosl
 ```
 
-First of all the
+Во-первых, адрес
 [__bss_start](https://github.com/torvalds/linux/blob/master/arch/x86/boot/setup.ld#L47)
-address is moved into `di` and the `_end + 3` address (+3 - aligns to 4 bytes)
-is moved into `cx`. The `eax` register is cleared (using a `xor` instruction),
-and the bss section size (`cx`-`di`) is calculated and put into `cx`. Then, `cx`
-is divided by four (the size of a 'word'), and the `stosl` instruction is
-repeatedly used, storing the value of `eax` (zero) into the address pointed to
-by `di`, automatically increasing `di` by four (this occurs until `cx` reaches
-zero). The net effect of this code is that zeros are written through all words
-in memory from `_\_bss\_start` to `_end`:
+помещается в `di`, а адрес `_end + 3` (+3 - выравнивает до четырех байт) -
+в `cx`. Регистр `eax` очищается (с помощью инструкции `xor`), и размер секции
+BSS (`cx`-`di`) рассчитывается и помещается в `cx`. Затем `cx` делится на 4
+(размер 'слова' (англ. word)), а инструкция `stosl` повторно используется,
+сохраняя значение `eax` (ноль) в адреса, на которые указывает `di`,
+автоматически увеличивая `di` на 4 (это продолжается до тех пор, пока `cx` не
+достигнет нуля). Эффект от этого кода в том, что теперь все 'слова' в памяти
+от `__bss_start` до `_end` заполнены нулями:
 
 ![bss](http://oi59.tinypic.com/29m2eyr.jpg)
 
-Jump to main
-------------
+Переход к основному коду
+------------------------
 
-That's all, we have the stack and BSS so we can jump to the `main()` C function:
+Вот и все, теперь у нас есть стек и BSS, так что мы можем переходить к
+C-функции `main()`:
 
 ```assembly
     calll main
 ```
 
-The `main()` function is located in
+Функция `main()` находится в файле
 [arch/x86/boot/main.c](https://github.com/torvalds/linux/blob/master/arch/x86/boot/main.c).
-You can read about what this does in the next part.
+О том, что она делает, вы сможете узнать в следующей части.
 
-Conclusion
+Заключение
 ----------
 
-This is the end of the first part about Linux kernel insides. If you have
-questions or suggestions, ping me in twitter [0xAX](https://twitter.com/0xAX),
-drop me [email](anotherworldofworld@gmail.com) or just create
-[issue](https://github.com/0xAX/linux-internals/issues/new). In the next part we
-will see first C code which executes in Linux kernel setup, implementation of
-memory routines as `memset`, `memcpy`, `earlyprintk` implementation and early
-console initialization and many more.
+Это конец первой части о внутреннем устройстве ядра Linux. Если у вас есть
+вопросы или предложения, напишите мне в твиттер
+[0xAX](https://twitter.com/0xAX), на почту
+[email](anotherworldofworld@gmail.com) или просто откройте
+[issue](https://github.com/0xAX/linux-internals/issues/new). В следующей части
+мы увидим первый код на языке C, который выполняется при настройке ядра Linux,
+реализацию процедур для работы с памятью, таких как `memset`, `memcpy`,
+`earlyprintk`, инициализацию консоли и многое другое.
 
-**Please note that English is not my first language and I am really sorry for
-any inconvenience. If you find any mistakes please send me PR to
+**Пожалуйста, имейте в виду, что английский - не мой родной язык, и я очень
+извиняюсь за неудобства. Если вы найдете какие-нибудь ошибки, пожалуйста,
+пришлите pull request в
 [linux-insides](https://github.com/0xAX/linux-internals).**
 
-Links
------
+Ссылки
+------
 
-  * [Intel 80386 programmer's reference manual 1986](http://css.csail.mit.edu/6.858/2014/readings/i386.pdf)
-  * [Minimal Boot Loader for Intel® Architecture](https://www.cs.cmu.edu/~410/doc/minimal_boot.pdf)
+  * [Справочник программиста Intel 80386 1986](http://css.csail.mit.edu/6.858/2014/readings/i386.pdf)
+  * [Минимальный загрузчик для архитектуры Intel®](https://www.cs.cmu.edu/~410/doc/minimal_boot.pdf)
   * [8086](http://en.wikipedia.org/wiki/Intel_8086)
   * [80386](http://en.wikipedia.org/wiki/Intel_80386)
-  * [Reset vector](http://en.wikipedia.org/wiki/Reset_vector)
-  * [Real mode](http://en.wikipedia.org/wiki/Real_mode)
-  * [Linux kernel boot protocol](https://www.kernel.org/doc/Documentation/x86/boot.txt)
-  * [CoreBoot developer manual](http://www.coreboot.org/Developer_Manual)
-  * [Ralf Brown's Interrupt List](http://www.ctyme.com/intr/int.htm)
-  * [Power supply](http://en.wikipedia.org/wiki/Power_supply)
-  * [Power good signal](http://en.wikipedia.org/wiki/Power_good_signal)
+  * [Вектор прерываний](http://en.wikipedia.org/wiki/Reset_vector)
+  * [Режим реальных адресов](http://en.wikipedia.org/wiki/Real_mode)
+  * [Протокол загрузки ядра Linux](https://www.kernel.org/doc/Documentation/x86/boot.txt)
+  * [Справочник разработчика CoreBoot](http://www.coreboot.org/Developer_Manual)
+  * [Список прерываний Ральфа Брауна](http://www.ctyme.com/intr/int.htm)
+  * [Источник питания](http://en.wikipedia.org/wiki/Power_supply)
+  * [Сигнал "Питание в норме"](http://en.wikipedia.org/wiki/Power_good_signal)
