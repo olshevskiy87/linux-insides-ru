@@ -15,7 +15,7 @@ Linux изнутри
 Поддержка
 ---------
 
-**Поддержка** Если вам понравился `linux-insides`, можете помочь мне следующими
+Если `linux-insides` вам понравился, можете **поддержать** автора следующими
 способами:
 
 [![Flattr linux-insides](https://img.shields.io/badge/donate-flattr-green.svg)](https://flattr.com/submit/auto?user_id=0xAX&url=https://github.com/0xAX/linux-insides/&title=linux-insed)
