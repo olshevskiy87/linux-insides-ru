@@ -1,7 +1,7 @@
 TODO
 ====
 
-[ ] pull the latest changes from original repository
+[ ] pull the latest changes from original repository since 3723c11
 
 uncertain
 ---------
